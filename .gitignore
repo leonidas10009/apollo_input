@@ -3,6 +3,9 @@ cmake-build-*/
 build/
 out/
 
+# Generated documentation
+docs/doxygen/
+
 # Binaries
 *.exe
 *.dll

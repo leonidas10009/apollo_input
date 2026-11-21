@@ -1,5 +1,8 @@
 # ApolloInput Nova
 
+[![Documentation](https://github.com/leonidas10009/apollo_input/actions/workflows/docs.yml/badge.svg)](https://github.com/leonidas10009/apollo_input/actions/workflows/docs.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-5eead4)](https://leonidas10009.github.io/apollo_input/)
+
 **ApolloInput Nova** is a standalone, MIT-licensed C++ library for creating
 virtual gamepads. It is the reusable input layer extracted from Apollo 2026.
 
@@ -170,6 +173,7 @@ See [integration/README.md](integration/README.md).
 
 ## Documentation
 
+- [Online API documentation (GitHub Pages)](https://leonidas10009.github.io/apollo_input/)
 - [Building](docs/building.md)
 - [API reference](docs/api.md)
 - [Controller compatibility](docs/controller-compatibility.md)

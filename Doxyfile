@@ -1,0 +1,92 @@
+# Doxygen configuration for ApolloInput Nova.
+# Generated HTML is published to GitHub Pages by .github/workflows/docs.yml.
+
+PROJECT_NAME           = "ApolloInput Nova"
+PROJECT_NUMBER         = "0.2.0"
+PROJECT_BRIEF          = "Standalone virtual gamepad library"
+OUTPUT_DIRECTORY       = docs/doxygen
+OUTPUT_LANGUAGE        = English
+
+# Parsing
+INPUT                  = README.md \
+                         CHANGELOG.md \
+                         THIRD_PARTY.md \
+                         docs/api.md \
+                         docs/building.md \
+                         docs/COMO_USAR_EL_TESTER.md \
+                         docs/controller-compatibility.md \
+                         docs/ESTUDIO_COMPATIBILIDAD_MANDOS.md \
+                         docs/VIGEMBUS_NOTES.md \
+                         visual-tester/README.md \
+                         integration/README.md \
+                         include \
+                         src
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.h *.hpp *.c *.cpp *.md
+RECURSIVE              = YES
+EXCLUDE                = third-party \
+                         tests \
+                         examples \
+                         tools
+EXCLUDE_PATTERNS       = */third-party/* */cmake-build-*/* */build/* */docs/doxygen/*
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_ANON_NSPACES   = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_AS_ERROR          = NO
+
+# Language / Markdown
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = NO
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 3
+AUTOLINK_SUPPORT       = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# Preprocessing
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+PREDEFINED             = _WIN32
+SKIP_FUNCTION_MACROS   = YES
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = YES
+REFERENCED_BY_RELATION = NO
+REFERENCES_RELATION    = NO
+VERBATIM_HEADERS       = YES
+
+# HTML output
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_COLORSTYLE        = LIGHT
+HTML_DYNAMIC_MENUS     = YES
+DISABLE_INDEX          = NO
+GENERATE_TREEVIEW      = YES
+SEARCHENGINE           = YES
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+GENERATE_AUTOGEN_DEF   = NO
+GENERATE_PERLMOD       = NO
+
+# Graphs
+HAVE_DOT               = NO
+
+# Misc
+QUIET                  = NO
+WARNINGS               = YES
+WARN_NO_PARAMDOC       = NO
+WARN_FORMAT            = "$file:$line: $text"
+WARN_LOGFILE           =
