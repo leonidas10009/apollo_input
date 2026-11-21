@@ -170,10 +170,14 @@ See [integration/README.md](integration/README.md).
 
 ## Documentation
 
+- [Building](docs/building.md)
+- [API reference](docs/api.md)
 - [Controller compatibility](docs/controller-compatibility.md)
 - [Estudio de compatibilidad (Español)](docs/ESTUDIO_COMPATIBILIDAD_MANDOS.md)
 - [Cómo usar el tester](docs/COMO_USAR_EL_TESTER.md)
 - [Notas de ViGEmBus](docs/VIGEMBUS_NOTES.md)
+- [Third-party notices](THIRD_PARTY.md)
+- [Changelog](CHANGELOG.md)
 
 ## License
 
