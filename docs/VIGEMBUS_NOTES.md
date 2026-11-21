@@ -1,9 +1,9 @@
 # Notas sobre ViGEmBus
 
-## Qué hay en esta carpeta
+## Contexto
 
-`ViGEmBus-master\ViGEmBus-master` es la fuente de ViGEmBus 1.22.0 (BSD-3-Clause,
-EOL). El driver oficial solo emula:
+Este repositorio **no incluye** el código fuente de ViGEmBus. El driver oficial
+1.22.0 (BSD-3-Clause, EOL) solo emula:
 
 - Xbox 360
 - DualShock 4
@@ -32,8 +32,8 @@ Un fork real de ViGEmBus implica:
 4. Firma de driver (WDK, certificado EV/atestación).
 
 No es necesario para ApolloInput Nova 0.2.0. Si se decide hacerlo, el nombre de
-trabajo propuesto es **ViGEmBus Reforged** y debe mantenerse en esta carpeta de
-staging hasta validarse.
+trabajo propuesto es **ViGEmBus Reforged** y debe mantenerse en una carpeta de
+staging separada hasta validarse.
 
 ## Alternativa recomendada para Windows
 

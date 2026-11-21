@@ -222,6 +222,10 @@ struct ControllerDescription {
 
 Profile recommended_profile(const ControllerDescription &controller);
 std::vector<Profile> profile_compatibility_chain(Profile profile);
+
+const char *to_string(ControllerFamily family);
+bool controller_family_from_string(const std::string &name,
+                                   ControllerFamily &family);
 ```
 
 `recommended_profile()` picks the most capable profile for the reported

@@ -3,8 +3,8 @@
 ## Scope
 
 This document studies the controllers that the Apollo host can expose to games
-through the standalone `apollo-input` library, now staged as **ApolloInput
-Nova 0.2.0**. It covers:
+through the standalone `apollo-input` library, released as **ApolloInput Nova
+0.2.0**. It covers:
 
 - virtual controller profiles created on the host,
 - the Windows ViGEmBus and Linux uinput backends,
@@ -289,7 +289,8 @@ LizardByte's Source-Available License 1.0 components is used by `apollo-input`.
 - [x] Windows ViGEmBus compatibility fallback test (DualSense -> DualShock 4).
 - [x] Controller tester: list, monitor, self-test and XInput verification with
       virtual Xbox 360 and DualShock 4 devices.
-- [ ] Physical controllers of the target machine via the tester.
+- [x] DualSense `054C:0CE6` on the target machine: drift PASS (202 samples,
+      0 after filtering) and physical → DualShock 4 bridge.
 - [ ] Linux uinput test on real hardware (`evtest`, `jstest`, SDL3 testcontroller).
 - [ ] Steam Input recognition for each uinput profile.
 - [ ] DualSense adaptive trigger test with a future HID backend.

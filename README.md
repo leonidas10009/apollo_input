@@ -72,11 +72,12 @@ for their extended features.
 - a **radial deadzone** to both sticks,
 - exact `0,0` center snap inside the deadzone,
 - rescaling outside the deadzone to preserve full travel,
-- an independent trigger deadzone,
-- neutral state submission when a paused session is resumed by the host.
+- an independent trigger deadzone.
 
 Defaults are 3 % for sticks and 2 % for triggers. `Device::set_deadzone()`
-changes them per device. See [docs/controller-compatibility.md](docs/controller-compatibility.md).
+changes them per device. The separate Apollo host patch also submits a neutral
+state when a paused session resumes. See
+[docs/controller-compatibility.md](docs/controller-compatibility.md).
 
 ## Quick start
 
@@ -134,7 +135,7 @@ Examples:
 
 ## Visual tester
 
-Start the local visual application:
+Build the C++ tester first, then start the local visual application:
 
 ```bash
 cd visual-tester

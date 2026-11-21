@@ -18,6 +18,7 @@
 - Added the visual browser-based tester.
 - Added the Apollo streaming precision/anti-drift patch.
 - Added controller compatibility studies and guides.
+- Added Doxygen API documentation and a GitHub Pages deployment workflow.
 
 ## 0.1.0
 

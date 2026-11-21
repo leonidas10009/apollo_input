@@ -1,8 +1,9 @@
 # Estudio de compatibilidad de mandos — ApolloInput Nova 0.2.0
 
-> Estado: **staging**. Esta versión vive primero en
-> `ViGEmBus refunded\ApolloInput-Nova-0.2.0` y todavía **no** está integrada de
-> forma definitiva en el repositorio de Apollo.
+> Estado: publicado como **ApolloInput Nova 0.2.0** en
+> https://github.com/leonidas10009/apollo_input.
+> El parche de host para Apollo se distribuye por separado en `integration/`;
+> este repositorio no modifica el servidor Apollo.
 
 ## 1. Objetivo
 
@@ -69,10 +70,10 @@ consumidores. El nombre Nova distingue esta generación mientras se valida.
 - Los valores fuera de la deadzone se reescalan para conservar todo el recorrido.
 - Los gatillos tienen su propia deadzone y también se reescalan.
 - `Device::set_deadzone()` permite ajustar el filtro por dispositivo.
-- En el host Apollo, la misma lógica se aplica antes de enviar el estado al
-  backend, por lo que cubre libvirtualhid y ViGEmBus.
-- Al reanudar una sesión pausada se envía un estado neutro antes de reenganchar
-  el mando, evitando que un stick o gatillo quede “pillado”.
+- El parche de host (`integration/`) aplica la misma lógica antes de enviar el
+  estado al backend, por lo que cubre libvirtualhid y ViGEmBus.
+- El parche también envía un estado neutro al reanudar una sesión pausada, antes
+  de reenganchar el mando, evitando que un stick o gatillo quede "pillado".
 
 ### Tester real
 
@@ -226,9 +227,11 @@ código de LizardByte LB-SAL 1.0.
 - [x] Tester: `list`, `monitor`, `selftest` y `verify` contra mandos virtuales
       Xbox 360 y DualShock 4.
 - [x] Host Apollo: pruebas específicas de deadzone, botones, perfiles Steam y
-      reanudación de sesión.
+      reanudación de sesión en la copia de trabajo previa a publicar el parche.
+- [x] DualSense físico `054C:0CE6`: drift PASS (202 muestras, 0 tras filtrado)
+      y bridge físico → DualShock 4.
 - [ ] Suite completa de Apollo después de aplicar el parche de streaming.
-- [ ] Prueba con los mandos físicos del usuario mediante el tester.
+- [ ] Resto de mandos físicos del usuario mediante el tester.
 
 ## 12. Validación pendiente
 
@@ -241,16 +244,16 @@ código de LizardByte LB-SAL 1.0.
 
 ## 13. Próximos pasos recomendados
 
-1. Validar con los mandos físicos del usuario usando
-   `bin/apollo-input-controller-tester.exe`.
-2. Aplicar `apollo-streaming-precision-0.2.0.patch` en Apollo y ejecutar la
-   suite completa.
-3. Aplicar `apollo-input-0.2.0.patch` en `Apollo-git/libs/apollo-input` solo
-   después de la validación.
+1. Validar con todos los mandos físicos del usuario usando el tester visual y
+   el tester CLI.
+2. Aplicar `integration/apollo-streaming-precision-0.2.0.patch` en Apollo y
+   ejecutar la suite completa del host.
+3. Integrar esta librería en `Apollo-git/libs/apollo-input` solo después de la
+   validación, o consumirla como submódulo.
 4. Si se quieren perfiles completos en Windows sin licencia, crear un backend
    **VHF/UMDF2** (no un fork de ViGEmBus) y firmarlo.
 5. Si se decide revivir ViGEmBus como fork, llamarlo **ViGEmBus Reforged** y
-   mantenerlo en esta misma carpeta de staging.
+   mantenerlo en una carpeta de staging separada hasta validarlo.
 
-> Importante: ahora mismo **no hay nada integrado en Apollo server**. El repo
-> `Apollo-git` está limpio y `Release\apollo.exe` no se ha tocado.
+> Importante: este repositorio es la librería independiente. El parche de
+> streaming se aplica aparte y **no se ha desplegado** en `Release\apollo.exe`.
