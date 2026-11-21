@@ -1,0 +1,42 @@
+# Build directories
+cmake-build-*/
+build/
+out/
+
+# Binaries
+*.exe
+*.dll
+*.lib
+*.a
+*.so
+*.dylib
+*.obj
+*.o
+*.pdb
+*.ilk
+
+# Visual tester runtime
+visual-tester/__pycache__/
+visual-tester/*.pyc
+visual-tester/server.out
+visual-tester/server.err
+visual-tester/preview*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+CMakeUserPresets.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

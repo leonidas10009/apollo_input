@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ApolloInput Nova · Visual Tester</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div>
+        <h1>ApolloInput <span>Nova</span></h1>
+        <p>Visual controller tester · 0.2.0</p>
+      </div>
+    </div>
+
+    <div class="device-bar">
+      <label for="device-select">Mando detectado</label>
+      <select id="device-select">
+        <option value="">Pulsa un botón del mando…</option>
+      </select>
+      <button id="refresh-devices" class="btn ghost" title="Volver a buscar mandos">↻</button>
+      <span id="connection-badge" class="badge off">Sin mando</span>
+    </div>
+  </header>
+
+  <div class="hint" id="browser-hint">
+    El navegador solo muestra un mando después de pulsar un botón. Si usas un mando virtual,
+    créalo en la pestaña <strong>Perfiles</strong> y luego pulsa un botón en él.
+  </div>
+
+  <main class="layout">
+    <section class="card controller-card">
+      <div class="card-head">
+        <div>
+          <h2>Vista del mando</h2>
+          <p id="device-id" class="muted">Sin dispositivo seleccionado</p>
+        </div>
+        <div class="legend">
+          <span class="dot green"></span> pulsado
+          <span class="dot dim"></span> libre
+        </div>
+      </div>
+
+      <svg id="gamepad" viewBox="0 0 1000 620" role="img" aria-label="Mando virtual">
+        <defs>
+          <linearGradient id="padGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3a425d"/>
+            <stop offset="48%" stop-color="#252c41"/>
+            <stop offset="100%" stop-color="#151a28"/>
+          </linearGradient>
+          <linearGradient id="padHighlight" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.13"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="metalGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3a435e"/>
+            <stop offset="100%" stop-color="#232a3d"/>
+          </linearGradient>
+          <filter id="padShadow" x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#000" flood-opacity="0.62"/>
+          </filter>
+          <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="6" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <radialGradient id="stickGradient" cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="#39425d"/>
+            <stop offset="100%" stop-color="#171c2a"/>
+          </radialGradient>
+        </defs>
+
+        <!-- trigger tracks -->
+        <rect x="300" y="92" width="150" height="24" rx="12" class="trigger-track"/>
+        <rect id="lt-fill" x="302" y="94" width="0" height="20" rx="10" class="trigger-fill"/>
+        <rect x="550" y="92" width="150" height="24" rx="12" class="trigger-track"/>
+        <rect id="rt-fill" x="552" y="94" width="0" height="20" rx="10" class="trigger-fill"/>
+        <text x="375" y="74" class="pad-label">LT / L2</text>
+        <text x="625" y="74" class="pad-label">RT / R2</text>
+
+        <!-- shoulders -->
+        <g id="btn-lb" class="pad-shoulder">
+          <rect x="285" y="132" width="150" height="38" rx="19"/>
+          <text x="360" y="158">LB</text>
+        </g>
+        <g id="btn-rb" class="pad-shoulder">
+          <rect x="565" y="132" width="150" height="38" rx="19"/>
+          <text x="640" y="158">RB</text>
+        </g>
+
+        <!-- body -->
+        <g filter="url(#padShadow)">
+          <path d="M500 150 C380 150 300 180 250 250 C190 335 170 470 240 510 C300 545 370 470 410 430 L590 430 C630 470 700 545 760 510 C830 470 810 335 750 250 C700 180 620 150 500 150 Z"
+                fill="url(#padGradient)" stroke="#5b6a8c" stroke-width="4"/>
+          <path d="M318 205 C385 185 615 185 682 205" fill="none" stroke="#8fa0c8" stroke-width="3" opacity="0.28"/>
+          <ellipse cx="500" cy="244" rx="252" ry="86" fill="url(#padHighlight)" opacity="0.7"/>
+          <ellipse cx="305" cy="390" rx="42" ry="82" fill="#0b0e17" opacity="0.18"/>
+          <ellipse cx="695" cy="390" rx="42" ry="82" fill="#0b0e17" opacity="0.18"/>
+        </g>
+
+        <!-- d-pad -->
+        <g class="dpad">
+          <rect x="280" y="184" width="40" height="132" rx="12" class="dpad-base"/>
+          <rect x="224" y="240" width="152" height="40" rx="12" class="dpad-base"/>
+          <g id="btn-du" class="dpad-key"><rect x="286" y="190" width="28" height="48" rx="7"/></g>
+          <g id="btn-dd" class="dpad-key"><rect x="286" y="262" width="28" height="48" rx="7"/></g>
+          <g id="btn-dl" class="dpad-key"><rect x="238" y="236" width="48" height="28" rx="7"/></g>
+          <g id="btn-dr" class="dpad-key"><rect x="314" y="236" width="48" height="28" rx="7"/></g>
+        </g>
+
+        <!-- face buttons -->
+        <g id="btn-y" class="face face-y">
+          <circle cx="700" cy="200" r="30"/>
+          <text x="700" y="210">Y</text>
+        </g>
+        <g id="btn-x" class="face face-x">
+          <circle cx="650" cy="250" r="30"/>
+          <text x="650" y="260">X</text>
+        </g>
+        <g id="btn-b" class="face face-b">
+          <circle cx="750" cy="250" r="30"/>
+          <text x="750" y="260">B</text>
+        </g>
+        <g id="btn-a" class="face face-a">
+          <circle cx="700" cy="300" r="30"/>
+          <text x="700" y="310">A</text>
+        </g>
+
+        <!-- center buttons -->
+        <g id="btn-guide" class="pad-small">
+          <circle cx="500" cy="218" r="20"/>
+          <text x="500" y="225">⌂</text>
+        </g>
+        <g id="btn-back" class="pad-small">
+          <rect x="408" y="258" width="52" height="24" rx="12"/>
+          <text x="434" y="274">◧</text>
+        </g>
+        <g id="btn-start" class="pad-small">
+          <rect x="540" y="258" width="52" height="24" rx="12"/>
+          <text x="566" y="274">▶</text>
+        </g>
+        <g id="btn-touchpad" class="pad-touchpad">
+          <rect x="445" y="294" width="110" height="50" rx="14"/>
+          <text x="500" y="324">TOUCHPAD</text>
+        </g>
+
+        <!-- sticks -->
+        <g class="stick">
+          <circle cx="370" cy="350" r="66" class="stick-base"/>
+          <circle cx="370" cy="350" r="52" class="stick-ring"/>
+          <circle id="ls-dot" cx="370" cy="350" r="25" class="stick-dot"/>
+          <text x="370" y="430" class="pad-label">L3</text>
+        </g>
+        <g class="stick">
+          <circle cx="630" cy="350" r="66" class="stick-base"/>
+          <circle cx="630" cy="350" r="52" class="stick-ring"/>
+          <circle id="rs-dot" cx="630" cy="350" r="25" class="stick-dot"/>
+          <text x="630" y="430" class="pad-label">R3</text>
+        </g>
+
+        <text x="500" y="585" class="pad-watermark">ApolloInput Nova</text>
+      </svg>
+
+      <div class="trigger-readouts">
+        <div><span>LT</span><strong id="lt-value">0</strong></div>
+        <div><span>RT</span><strong id="rt-value">0</strong></div>
+        <div><span>Perfil</span><strong id="profile-hint">—</strong></div>
+      </div>
+    </section>
+
+    <section class="card side-card">
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="live">Vivo</button>
+        <button class="tab" data-tab="buttons">Botones</button>
+        <button class="tab" data-tab="sticks">Sticks</button>
+        <button class="tab" data-tab="profiles">Perfiles</button>
+        <button class="tab" data-tab="log">Registro</button>
+      </nav>
+
+      <div class="tab-panel active" id="tab-live">
+        <div class="metric-grid">
+          <article class="metric">
+            <h3>Stick izquierdo</h3>
+            <div class="metric-row"><span>X</span><strong id="ls-x">0.00</strong></div>
+            <div class="metric-row"><span>Y</span><strong id="ls-y">0.00</strong></div>
+            <div class="metric-row"><span>Magnitud</span><strong id="ls-mag">0.00</strong></div>
+          </article>
+          <article class="metric">
+            <h3>Stick derecho</h3>
+            <div class="metric-row"><span>X</span><strong id="rs-x">0.00</strong></div>
+            <div class="metric-row"><span>Y</span><strong id="rs-y">0.00</strong></div>
+            <div class="metric-row"><span>Magnitud</span><strong id="rs-mag">0.00</strong></div>
+          </article>
+        </div>
+
+        <div class="control-row">
+          <label>Deadzone sticks <strong id="dz-label">3%</strong>
+            <input id="dz-stick" type="range" min="0" max="30" value="3">
+          </label>
+          <label>Deadzone gatillos <strong id="tdz-label">2%</strong>
+            <input id="dz-trigger" type="range" min="0" max="30" value="2">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="rumble-btn" class="btn">Probar rumble</button>
+          <button id="drift-btn" class="btn accent">Test de drift (5 s)</button>
+        </div>
+        <div id="drift-result" class="result neutral">Sin test de drift.</div>
+
+        <div class="pressed-box">
+          <h3>Pulsado ahora</h3>
+          <div id="pressed-list" class="chips"><span class="muted">Nada</span></div>
+        </div>
+
+        <div class="raw-table">
+          <h3>Ejes brutos</h3>
+          <div id="axes-list" class="axes"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-buttons">
+        <div class="panel-head">
+          <div>
+            <h2>Prueba todos los botones</h2>
+            <p class="muted">Pulsa cada botón una vez. Los probados se marcan en verde.</p>
+          </div>
+          <button id="reset-buttons" class="btn ghost">Reiniciar</button>
+        </div>
+        <div id="button-progress" class="progress"><span id="button-progress-fill"></span></div>
+        <p id="button-progress-text" class="muted">0 / 0 botones probados</p>
+        <div id="button-grid" class="button-grid"></div>
+      </div>
+
+      <div class="tab-panel" id="tab-sticks">
+        <div class="stick-grid">
+          <article class="stick-card">
+            <h3>Izquierdo</h3>
+            <div class="stick-pad" id="ls-pad"><span id="ls-pad-dot" class="stick-pad-dot"></span></div>
+            <div class="metric-row"><span>Bruto</span><strong id="ls-raw">0.00, 0.00</strong></div>
+            <div class="metric-row"><span>Filtrado</span><strong id="ls-filtered">0.00, 0.00</strong></div>
+          </article>
+          <article class="stick-card">
+            <h3>Derecho</h3>
+            <div class="stick-pad" id="rs-pad"><span id="rs-pad-dot" class="stick-pad-dot"></span></div>
+            <div class="metric-row"><span>Bruto</span><strong id="rs-raw">0.00, 0.00</strong></div>
+            <div class="metric-row"><span>Filtrado</span><strong id="rs-filtered">0.00, 0.00</strong></div>
+          </article>
+        </div>
+        <div class="drift-card">
+          <h3>Anti-drift</h3>
+          <p class="muted">La prueba dura 5 segundos. No toques los sticks.</p>
+          <div class="metric-row"><span>Máximo bruto</span><strong id="drift-raw">—</strong></div>
+          <div class="metric-row"><span>Máximo filtrado</span><strong id="drift-filtered">—</strong></div>
+          <div class="metric-row"><span>Muestras</span><strong id="drift-samples">0</strong></div>
+          <div id="drift-verdict" class="result neutral">Sin datos.</div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-profiles">
+        <div class="panel-head">
+          <div>
+            <h2>Perfiles y tester real</h2>
+            <p class="muted">Crea mandos virtuales con ApolloInput Nova y míralos en el navegador.</p>
+          </div>
+          <span id="cli-badge" class="badge off">CLI inactivo</span>
+        </div>
+
+        <div class="form-grid">
+          <label>Origen
+            <select id="cli-source">
+              <option value="xinput">XInput (Xbox)</option>
+              <option value="dinput">DirectInput (otros)</option>
+            </select>
+          </label>
+          <label>Índice / slot
+            <input id="cli-index" type="number" min="0" value="0">
+          </label>
+          <label>Perfil
+            <select id="cli-profile">
+              <option value="xbox_360">xbox_360</option>
+              <option value="xbox_one">xbox_one</option>
+              <option value="xbox_series" selected>xbox_series</option>
+              <option value="xbox_elite">xbox_elite</option>
+              <option value="dualshock4">dualshock4</option>
+              <option value="dualsense">dualsense</option>
+              <option value="dualsense_edge">dualsense_edge</option>
+              <option value="switch_pro">switch_pro</option>
+              <option value="steam_controller">steam_controller</option>
+              <option value="steam_deck">steam_deck</option>
+              <option value="generic">generic</option>
+            </select>
+          </label>
+          <label>Segundos
+            <input id="cli-seconds" type="number" min="1" max="3600" value="120">
+          </label>
+        </div>
+
+        <div class="actions wrap">
+          <button id="cli-list" class="btn">Listar dispositivos</button>
+          <button id="cli-bridge" class="btn accent">Pasar físico → virtual</button>
+          <button id="cli-selftest" class="btn accent">Self-test virtual</button>
+          <button id="cli-verify" class="btn">Verificar Xbox 360</button>
+          <button id="cli-drift" class="btn">Drift CLI</button>
+          <button id="cli-stop" class="btn danger">Detener</button>
+        </div>
+
+        <div class="note">
+          <strong>Importante:</strong> ViGEmBus crea Xbox 360 y DualShock 4 de forma nativa.
+          Los demás perfiles usan fallback y el tester mostrará el perfil real.
+          Cuando crees un mando virtual, selecciónalo arriba en <em>Mando detectado</em>.
+        </div>
+
+        <pre id="cli-output" class="console">Sin salida todavía.</pre>
+      </div>
+
+      <div class="tab-panel" id="tab-log">
+        <div class="panel-head">
+          <h2>Registro</h2>
+          <button id="clear-log" class="btn ghost">Limpiar</button>
+        </div>
+        <pre id="log" class="console tall"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>ApolloInput Nova 0.2.0 · staging</span>
+    <span>Atajos: 1 Vivo · 2 Botones · 3 Sticks · 4 Perfiles · 5 Registro</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

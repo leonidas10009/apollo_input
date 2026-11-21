@@ -1,0 +1,517 @@
+diff --git a/docs/configuration.md b/docs/configuration.md
+index 78750dd6..91592b05 100644
+--- a/docs/configuration.md
++++ b/docs/configuration.md
+@@ -610,6 +610,65 @@ consent prompt for directory ACLs, so the Web UI shows setup steps for correctin
+     </tr>
+ </table>
+ 
++### gamepad_stick_deadzone
++
++<table>
++    <tr>
++        <td>Description</td>
++        <td colspan="2">
++            Radial deadzone percentage applied to both analog sticks before they are sent to the
++            virtual gamepad. It removes small client or controller drift without changing normal
++            movement. Values outside the deadzone are rescaled so full travel still reaches the
++            endpoints. Set to 0 to disable host-side filtering.
++        </td>
++    </tr>
++    <tr>
++        <td>Default</td>
++        <td colspan="2">@code{}
++            3
++            @endcode</td>
++    </tr>
++    <tr>
++        <td>Example</td>
++        <td colspan="2">@code{}
++            gamepad_stick_deadzone = 5
++            @endcode</td>
++    </tr>
++    <tr>
++        <td>Range</td>
++        <td colspan="2">0 to 30</td>
++    </tr>
++</table>
++
++### gamepad_trigger_deadzone
++
++<table>
++    <tr>
++        <td>Description</td>
++        <td colspan="2">
++            Deadzone percentage applied to analog triggers. Values below the threshold are treated
++            as fully released, and higher values are rescaled to preserve the full trigger range.
++            Useful when a resting trigger reports a small non-zero value.
++        </td>
++    </tr>
++    <tr>
++        <td>Default</td>
++        <td colspan="2">@code{}
++            2
++            @endcode</td>
++    </tr>
++    <tr>
++        <td>Example</td>
++        <td colspan="2">@code{}
++            gamepad_trigger_deadzone = 4
++            @endcode</td>
++    </tr>
++    <tr>
++        <td>Range</td>
++        <td colspan="2">0 to 30</td>
++    </tr>
++</table>
++
+ ### ds4_back_as_touchpad_click
+ 
+ <table>
+diff --git a/src/config.cpp b/src/config.cpp
+index 332d7164..2d84b755 100644
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -906,6 +906,8 @@ namespace config {
+     true,  // native pen/touch support
+     false,  // enable input only mode
+     true,  // forward_rumble
++    3,  // gamepad_stick_deadzone
++    2,  // gamepad_trigger_deadzone
+   };
+ 
+   /**
+@@ -2026,6 +2028,8 @@ namespace config {
+     bool_f(vars, "native_pen_touch", input.native_pen_touch);
+     bool_f(vars, "enable_input_only_mode", input.enable_input_only_mode);
+     bool_f(vars, "forward_rumble", input.forward_rumble);
++    int_between_f(vars, "gamepad_stick_deadzone", input.gamepad_stick_deadzone, {0, 30});
++    int_between_f(vars, "gamepad_trigger_deadzone", input.gamepad_trigger_deadzone, {0, 30});
+ 
+     bool_f(vars, "notify_pre_releases", sunshine.notify_pre_releases);
+     bool_f(vars, "system_tray", sunshine.system_tray);
+diff --git a/src/config.h b/src/config.h
+index d7cee708..96f8bdb7 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -335,6 +335,9 @@ namespace config {
+ 
+     bool enable_input_only_mode;  ///< Apollo: start sessions without a video stream and allow an app to request one.
+     bool forward_rumble;  ///< Apollo: forward rumble events to the client controller.
++
++    int gamepad_stick_deadzone;  ///< Radial deadzone percentage applied to analog sticks.
++    int gamepad_trigger_deadzone;  ///< Deadzone percentage applied to analog triggers.
+   };
+ 
+   namespace flag {
+diff --git a/src/input.cpp b/src/input.cpp
+index bf0d1a85..9d03fd0b 100644
+--- a/src/input.cpp
++++ b/src/input.cpp
+@@ -88,6 +88,101 @@ namespace input {
+     UP  ///< Button is up
+   };
+ 
++  namespace {
++    /**
++     * @brief Maximum accepted analog deadzone percentage.
++     */
++    constexpr int MAX_GAMEPAD_DEADZONE_PERCENT = 30;
++
++    /**
++     * @brief Clamp a configured deadzone to the supported range.
++     *
++     * @param percent Configured percentage.
++     * @return Percentage in the inclusive range 0-30.
++     */
++    int gamepad_deadzone_percent(int percent) {
++      return std::clamp(percent, 0, MAX_GAMEPAD_DEADZONE_PERCENT);
++    }
++
++    /**
++     * @brief Convert a signed stick axis to a symmetric normalized value.
++     *
++     * @param value Signed 16-bit axis value.
++     * @return Axis value in the inclusive range -1.0 to 1.0.
++     */
++    float normalize_stick_axis(std::int16_t value) {
++      return value < 0 ? static_cast<float>(value) / 32768.0F : static_cast<float>(value) / 32767.0F;
++    }
++
++    /**
++     * @brief Convert a normalized stick axis back to the protocol range.
++     *
++     * @param value Normalized axis value.
++     * @return Signed 16-bit axis value.
++     */
++    std::int16_t denormalize_stick_axis(float value) {
++      const auto scaled = value < 0 ? value * 32768.0F : value * 32767.0F;
++      return static_cast<std::int16_t>(std::clamp<std::int32_t>(static_cast<std::int32_t>(std::lround(scaled)), -32768, 32767));
++    }
++
++    /**
++     * @brief Apply a radial deadzone and snap tiny stick movement to the center.
++     *
++     * The radial deadzone avoids the diagonal drift and axis-independent jitter
++     * produced by per-axis thresholds. Values outside the deadzone are rescaled
++     * so the full physical travel still reaches the protocol endpoints.
++     *
++     * @param x Horizontal axis value.
++     * @param y Vertical axis value.
++     * @return Sanitized horizontal and vertical axis values.
++     */
++    std::pair<std::int16_t, std::int16_t> sanitize_stick(std::int16_t x, std::int16_t y) {
++      const auto deadzone = static_cast<float>(gamepad_deadzone_percent(config::input.gamepad_stick_deadzone)) / 100.0F;
++      if (deadzone <= 0.0F) {
++        return {x, y};
++      }
++
++      auto nx = normalize_stick_axis(x);
++      auto ny = normalize_stick_axis(y);
++      const auto magnitude = std::sqrt(nx * nx + ny * ny);
++      if (magnitude <= deadzone) {
++        return {0, 0};
++      }
++
++      const auto clamped_magnitude = std::min(magnitude, 1.0F);
++      const auto scaled_magnitude = (clamped_magnitude - deadzone) / (1.0F - deadzone);
++      const auto scale = scaled_magnitude / magnitude;
++      nx *= scale;
++      ny *= scale;
++      return {denormalize_stick_axis(nx), denormalize_stick_axis(ny)};
++    }
++
++    /**
++     * @brief Apply a deadzone to an analog trigger.
++     *
++     * Values below the deadzone are reported as fully released. Higher values
++     * are rescaled so a fully pressed trigger still reaches the maximum.
++     *
++     * @param value Trigger value in the inclusive range 0-255.
++     * @return Sanitized trigger value.
++     */
++    std::uint8_t sanitize_trigger(std::uint8_t value) {
++      const auto deadzone = gamepad_deadzone_percent(config::input.gamepad_trigger_deadzone);
++      if (deadzone <= 0) {
++        return value;
++      }
++
++      const auto threshold = static_cast<int>(std::lround(255.0 * deadzone / 100.0));
++      if (value <= threshold) {
++        return 0;
++      }
++      if (threshold >= 255) {
++        return 255;
++      }
++      return static_cast<std::uint8_t>(std::lround((value - threshold) * 255.0 / (255 - threshold)));
++    }
++  }  // namespace
++
+   /**
+    * @brief Allocate an available input slot identifier.
+    *
+@@ -443,6 +538,18 @@ namespace input {
+         continue;
+       }
+ 
++      if (gamepad.back_timeout_id) {
++        task_pool.cancel(gamepad.back_timeout_id);
++        gamepad.back_timeout_id = nullptr;
++      }
++
++      // A paused client can leave a stick or trigger at its last value. Push a
++      // neutral report before routing feedback to the resumed connection so the
++      // virtual controller cannot keep a stale axis or button pressed.
++      platf::gamepad_update(platf_input, gamepad.id, {});
++      gamepad.gamepad_state = {};
++      gamepad.back_button_state = button_state_e::NONE;
++
+       if (platf::rebind_gamepad(platf_input, {gamepad.id, static_cast<std::uint8_t>(client_index)}, input->feedback_queue) != 0) {
+         free_id(gamepadMask, gamepad.id);
+         gamepad.id = -1;
+@@ -1379,6 +1486,17 @@ namespace input {
+       // Resume-time motion requests can arrive before the client assigns this
+       // controller slot. Replay them after its arrival, without recreating the
+       // virtual device, and clear feedback deduplication for the ready client.
++      if (gamepad.back_timeout_id) {
++        task_pool.cancel(gamepad.back_timeout_id);
++        gamepad.back_timeout_id = nullptr;
++      }
++
++      // Clear any axis or button retained from the paused connection before
++      // the fresh client state arrives.
++      platf::gamepad_update(platf_input, gamepad.id, {});
++      gamepad.gamepad_state = {};
++      gamepad.back_button_state = button_state_e::NONE;
++
+       if (platf::rebind_gamepad(platf_input, {gamepad.id, static_cast<std::uint8_t>(client_index)}, input->feedback_queue) != 0) {
+         BOOST_LOG(warning) << "Failed to rebind retained controller ["sv << client_index << ']';
+         return -1;
+@@ -1691,14 +1809,16 @@ namespace input {
+ 
+     std::uint16_t bf = packet->buttonFlags;
+     std::uint32_t bf2 = packet->buttonFlags2;
++    const auto [left_x, left_y] = sanitize_stick(packet->leftStickX, packet->leftStickY);
++    const auto [right_x, right_y] = sanitize_stick(packet->rightStickX, packet->rightStickY);
+     platf::gamepad_state_t gamepad_state {
+       bf | (bf2 << 16),
+-      packet->leftTrigger,
+-      packet->rightTrigger,
+-      packet->leftStickX,
+-      packet->leftStickY,
+-      packet->rightStickX,
+-      packet->rightStickY
++      sanitize_trigger(packet->leftTrigger),
++      sanitize_trigger(packet->rightTrigger),
++      left_x,
++      left_y,
++      right_x,
++      right_y
+     };
+ 
+     auto bf_new = gamepad_state.buttonFlags;
+diff --git a/src/platform/virtualhid_input.cpp b/src/platform/virtualhid_input.cpp
+index 854c7961..610c1d95 100644
+--- a/src/platform/virtualhid_input.cpp
++++ b/src/platform/virtualhid_input.cpp
+@@ -180,6 +180,10 @@ namespace platf::virtualhid {
+           return playstation;
+         case LI_CTYPE_NINTENDO:
+           return nintendo;
++        case LI_CTYPE_STEAM:
++          // libvirtualhid has no Steam Controller client type yet. The profile
++          // is still selected explicitly in profile_for_metadata().
++          return unknown;
+         case LI_CTYPE_UNKNOWN:
+         default:
+           return unknown;
+@@ -211,6 +215,10 @@ namespace platf::virtualhid {
+         BOOST_LOG(info) << "Gamepad will be Xbox Series controller (auto-selected by client-reported type)"sv;
+         return profile_for_name("xseries"sv);
+       }
++      if (metadata.type == LI_CTYPE_STEAM) {
++        BOOST_LOG(info) << "Gamepad will be DualSense controller (auto-selected by Steam Controller type)"sv;
++        return profile_for_name("ds5"sv);
++      }
+       if (config::input.motion_as_ds4 && (metadata.capabilities & (LI_CCAP_ACCEL | LI_CCAP_GYRO))) {
+         BOOST_LOG(info) << "Gamepad will be DualSense controller (auto-selected by motion sensor presence)"sv;
+         return profile_for_name("ds5"sv);
+@@ -253,7 +261,7 @@ namespace platf::virtualhid {
+       result.client_relative_index = id.clientRelativeIndex;
+       result.client_type = client_controller_type(metadata.type);
+       result.has_motion_sensors = metadata.capabilities & (LI_CCAP_ACCEL | LI_CCAP_GYRO);
+-      result.has_touchpad = metadata.capabilities & LI_CCAP_TOUCHPAD;
++      result.has_touchpad = (metadata.capabilities & LI_CCAP_TOUCHPAD) || (metadata.supportedButtons & TOUCHPAD_BUTTON);
+       result.has_rgb_led = metadata.capabilities & LI_CCAP_RGB_LED;
+       result.has_battery = metadata.capabilities & LI_CCAP_BATTERY_STATE;
+       result.stable_id = gamepad_stable_id(id, profile);
+@@ -270,6 +278,12 @@ namespace platf::virtualhid {
+       if ((metadata.capabilities & LI_CCAP_RGB_LED) && !support.supports_rgb_led) {
+         BOOST_LOG(warning) << "Gamepad "sv << global_index << " has an RGB LED, but the selected virtual profile cannot expose it"sv;
+       }
++      if ((metadata.supportedButtons & (PADDLE1 | PADDLE2 | PADDLE3 | PADDLE4)) && support.supported_rear_paddle_count == 0) {
++        BOOST_LOG(warning) << "Gamepad "sv << global_index << " has rear paddles, but the selected virtual profile cannot expose them"sv;
++      }
++      if ((metadata.capabilities & LI_CCAP_DUAL_TOUCHPAD) && support.supports_touchpad) {
++        BOOST_LOG(warning) << "Gamepad "sv << global_index << " has two touchpads; only one can be exposed by the selected virtual profile"sv;
++      }
+     }
+ 
+     void warn_missing_client_features(int global_index, const gamepad_arrival_t &metadata, const lvh::GamepadProfileSupport &support) {
+@@ -304,6 +318,10 @@ namespace platf::virtualhid {
+       result.buttons.set(y, flags & Y);
+       result.buttons.set(misc1, support.supports_misc1_button && (flags & MISC_BUTTON));
+       result.buttons.set(touchpad, support.supports_touchpad_button && (flags & TOUCHPAD_BUTTON));
++      result.buttons.set(paddle1, support.supported_rear_paddle_count >= 1 && (flags & PADDLE1));
++      result.buttons.set(paddle2, support.supported_rear_paddle_count >= 2 && (flags & PADDLE2));
++      result.buttons.set(paddle3, support.supported_rear_paddle_count >= 3 && (flags & PADDLE3));
++      result.buttons.set(paddle4, support.supported_rear_paddle_count >= 4 && (flags & PADDLE4));
+ 
+       if (support.supports_touchpad_button && config::input.ds4_back_as_touchpad_click && configured_gamepad_supports_touchpad() && (flags & BACK)) {
+         result.buttons.set(touchpad);
+diff --git a/src/platform/windows/input.cpp b/src/platform/windows/input.cpp
+index 6347b50d..e96d8d89 100644
+--- a/src/platform/windows/input.cpp
++++ b/src/platform/windows/input.cpp
+@@ -705,6 +705,9 @@ namespace platf {
+     } else if (metadata.type == LI_CTYPE_XBOX) {
+       BOOST_LOG(info) << "Gamepad " << id.globalIndex << " will be Xbox 360 controller (auto-selected by client-reported type)"sv;
+       selectedGamepadType = Xbox360Wired;
++    } else if (metadata.type == LI_CTYPE_STEAM) {
++      BOOST_LOG(info) << "Gamepad " << id.globalIndex << " will be DualShock 4 controller (auto-selected by Steam Controller type)"sv;
++      selectedGamepadType = DualShock4Wired;
+     } else if (config::input.motion_as_ds4 && (metadata.capabilities & (LI_CCAP_ACCEL | LI_CCAP_GYRO))) {
+       BOOST_LOG(info) << "Gamepad " << id.globalIndex << " will be DualShock 4 controller (auto-selected by motion sensor presence)"sv;
+       selectedGamepadType = DualShock4Wired;
+diff --git a/src_assets/common/assets/web/configs/config_tabs.json b/src_assets/common/assets/web/configs/config_tabs.json
+index 55399e59..259cdf6e 100644
+--- a/src_assets/common/assets/web/configs/config_tabs.json
++++ b/src_assets/common/assets/web/configs/config_tabs.json
+@@ -25,6 +25,8 @@
+       "forward_rumble": "enabled",
+       "gamepad_driver": "",
+       "gamepad": "auto",
++      "gamepad_stick_deadzone": 3,
++      "gamepad_trigger_deadzone": 2,
+       "ds4_back_as_touchpad_click": "enabled",
+       "motion_as_ds4": "enabled",
+       "touchpad_as_ds4": "enabled",
+diff --git a/src_assets/common/assets/web/configs/tabs/Inputs.vue b/src_assets/common/assets/web/configs/tabs/Inputs.vue
+index 6d422f9a..3b411b81 100644
+--- a/src_assets/common/assets/web/configs/tabs/Inputs.vue
++++ b/src_assets/common/assets/web/configs/tabs/Inputs.vue
+@@ -153,6 +153,32 @@ watch(
+       <div class="form-text">{{ $t('config.gamepad_desc') }}</div>
+     </div>
+ 
++    <!-- Analog precision -->
++    <div class="row mb-3" v-if="config.controller === 'enabled' && config.gamepad_driver !== 'none'">
++      <div class="col-md-6">
++        <label for="gamepad_stick_deadzone" class="form-label">{{ $t('config.gamepad_stick_deadzone') }}</label>
++        <input id="gamepad_stick_deadzone"
++               class="form-control"
++               type="number"
++               min="0"
++               max="30"
++               step="1"
++               v-model.number="config.gamepad_stick_deadzone">
++        <div class="form-text">{{ $t('config.gamepad_stick_deadzone_desc') }}</div>
++      </div>
++      <div class="col-md-6">
++        <label for="gamepad_trigger_deadzone" class="form-label">{{ $t('config.gamepad_trigger_deadzone') }}</label>
++        <input id="gamepad_trigger_deadzone"
++               class="form-control"
++               type="number"
++               min="0"
++               max="30"
++               step="1"
++               v-model.number="config.gamepad_trigger_deadzone">
++        <div class="form-text">{{ $t('config.gamepad_trigger_deadzone_desc') }}</div>
++      </div>
++    </div>
++
+     <!-- Additional options based on gamepad type -->
+     <template v-if="config.controller === 'enabled' && config.gamepad_driver !== 'none'">
+       <template v-if="config.gamepad === 'ds4' || config.gamepad === 'ds5' || config.gamepad === 'auto'">
+diff --git a/src_assets/common/assets/web/public/assets/locale/en.json b/src_assets/common/assets/web/public/assets/locale/en.json
+index 1b8a032a..fd9a8532 100644
+--- a/src_assets/common/assets/web/public/assets/locale/en.json
++++ b/src_assets/common/assets/web/public/assets/locale/en.json
+@@ -326,6 +326,10 @@
+     "gamepad_ds5": "DS5 (PS5)",
+     "gamepad_generic": "Generic HID gamepad",
+     "gamepad_switch": "Nintendo Pro (Switch)",
++    "gamepad_stick_deadzone": "Stick deadzone (%)",
++    "gamepad_stick_deadzone_desc": "Radial deadzone for both sticks. Removes tiny drift and jitter without affecting normal movement. 0 disables filtering.",
++    "gamepad_trigger_deadzone": "Trigger deadzone (%)",
++    "gamepad_trigger_deadzone_desc": "Values below this percentage are treated as fully released. Prevents resting triggers from registering as pressed.",
+     "gamepad_x360": "X360 (Xbox 360)",
+     "gamepad_xone": "XOne (Xbox One)",
+     "gamepad_xseries": "Xbox Series",
+diff --git a/tests/unit/platform/test_virtualhid_input.cpp b/tests/unit/platform/test_virtualhid_input.cpp
+index 7b0656cb..4573843e 100644
+--- a/tests/unit/platform/test_virtualhid_input.cpp
++++ b/tests/unit/platform/test_virtualhid_input.cpp
+@@ -532,6 +532,7 @@ INSTANTIATE_TEST_SUITE_P(
+     auto_profile_case_t {"PlayStation", LI_CTYPE_PS, 0, lvh::GamepadProfileKind::dualsense},
+     auto_profile_case_t {"Nintendo", LI_CTYPE_NINTENDO, 0, lvh::GamepadProfileKind::switch_pro},
+     auto_profile_case_t {"Xbox", LI_CTYPE_XBOX, 0, lvh::GamepadProfileKind::xbox_series},
++    auto_profile_case_t {"Steam", LI_CTYPE_STEAM, 0, lvh::GamepadProfileKind::dualsense},
+     auto_profile_case_t {"UnknownMotion", LI_CTYPE_UNKNOWN, LI_CCAP_ACCEL, lvh::GamepadProfileKind::dualsense},
+     auto_profile_case_t {"UnknownTouchpad", LI_CTYPE_UNKNOWN, LI_CCAP_TOUCHPAD, lvh::GamepadProfileKind::dualsense},
+     auto_profile_case_t {"UnknownDefault", LI_CTYPE_UNKNOWN, 0, lvh::GamepadProfileKind::xbox_series}
+diff --git a/tests/unit/test_config.cpp b/tests/unit/test_config.cpp
+index f3bb7cea..8d672b26 100644
+--- a/tests/unit/test_config.cpp
++++ b/tests/unit/test_config.cpp
+@@ -208,6 +208,20 @@ TEST_F(ConfigPersistenceTest, AcceptsAllGamepadProfilesAcrossRepeatedConfigurati
+   }
+ }
+ 
++TEST_F(ConfigPersistenceTest, ParsesGamepadDeadzoneOptions) {
++  const auto apps_file = config_file().parent_path() / "sunshine_test_config_apps.json";
++  ASSERT_EQ(file_handler::write_file(apps_file.string().c_str(), "{}"), 0);
++  config::stream.file_apps = apps_file.string();
++
++  config::apply_config_for_test("gamepad_stick_deadzone = 7\ngamepad_trigger_deadzone = 4\n");
++  EXPECT_EQ(config::input.gamepad_stick_deadzone, 7);
++  EXPECT_EQ(config::input.gamepad_trigger_deadzone, 4);
++
++  config::apply_config_for_test("gamepad_stick_deadzone = 99\ngamepad_trigger_deadzone = -1\n");
++  EXPECT_EQ(config::input.gamepad_stick_deadzone, 7);
++  EXPECT_EQ(config::input.gamepad_trigger_deadzone, 4);
++}
++
+ TEST_F(ConfigPersistenceTest, ParsesFp16SdrGammaEncodedOption) {
+   const auto apps_file = config_file().parent_path() / "sunshine_test_config_apps.json";
+   ASSERT_EQ(file_handler::write_file(apps_file.string().c_str(), "{}"), 0);
+diff --git a/tests/unit/test_input.cpp b/tests/unit/test_input.cpp
+index 61b2cf1d..d5dbcae1 100644
+--- a/tests/unit/test_input.cpp
++++ b/tests/unit/test_input.cpp
+@@ -375,6 +375,65 @@ TEST_F(InputGamepadSessionTest, SerializesArrivalAndStatePacketsForOneController
+   EXPECT_EQ(adapter->gamepad()->profile().gamepad_kind, lvh::GamepadProfileKind::switch_pro);
+ }
+ 
++TEST_F(InputGamepadSessionTest, SanitizesStickDriftAndTriggerNoiseBeforeBackend) {
++  config::input.gamepad = "xseries";
++  config::input.gamepad_stick_deadzone = 5;
++  config::input.gamepad_trigger_deadzone = 2;
++
++  auto stream_input = input::alloc(std::make_shared<safe::mail_raw_t>(), "precision-input");
++  ASSERT_NE(stream_input, nullptr);
++
++  const platf::gamepad_arrival_t metadata {LI_CTYPE_XBOX, 0, 0};
++  const auto id = input::testing::alloc_gamepad(stream_input, 0, metadata);
++  ASSERT_GE(id, 0);
++
++  auto *adapter = platf::virtualhid::gamepad_adapter_for_testing(context(), id);
++  ASSERT_NE(adapter, nullptr);
++
++  auto send_state = [&](std::int16_t left_x, std::int16_t left_y, std::int16_t right_x, std::int16_t right_y, std::uint8_t left_trigger, std::uint8_t right_trigger, std::uint32_t buttons) {
++    NV_MULTI_CONTROLLER_PACKET packet {};
++    packet.header.size = util::endian::big<std::uint32_t>(sizeof(packet) - sizeof(packet.header.size));
++    packet.header.magic = util::endian::little(MULTI_CONTROLLER_MAGIC_GEN5);
++    packet.controllerNumber = 0;
++    packet.activeGamepadMask = 1;
++    packet.buttonFlags = static_cast<short>(buttons & 0xFFFF);
++    packet.buttonFlags2 = static_cast<short>((buttons >> 16) & 0xFFFF);
++    packet.leftTrigger = left_trigger;
++    packet.rightTrigger = right_trigger;
++    packet.leftStickX = left_x;
++    packet.leftStickY = left_y;
++    packet.rightStickX = right_x;
++    packet.rightStickY = right_y;
++
++    std::vector<std::uint8_t> bytes(sizeof(packet));
++    std::memcpy(bytes.data(), &packet, sizeof(packet));
++    input::passthrough(stream_input, std::move(bytes), TEST_INPUT_PERMISSIONS);
++    input::testing::process_queued_messages(stream_input);
++  };
++
++  send_state(900, -1200, -800, 700, 4, 5, 0);
++  EXPECT_FLOAT_EQ(adapter->state().left_stick.x, 0.0F);
++  EXPECT_FLOAT_EQ(adapter->state().left_stick.y, 0.0F);
++  EXPECT_FLOAT_EQ(adapter->state().right_stick.x, 0.0F);
++  EXPECT_FLOAT_EQ(adapter->state().right_stick.y, 0.0F);
++  EXPECT_FLOAT_EQ(adapter->state().left_trigger, 0.0F);
++  EXPECT_FLOAT_EQ(adapter->state().right_trigger, 0.0F);
++
++  send_state(32767, 0, -32768, 0, 255, 254, 0);
++  EXPECT_NEAR(adapter->state().left_stick.x, 1.0F, 0.001F);
++  EXPECT_NEAR(adapter->state().left_stick.y, 0.0F, 0.001F);
++  EXPECT_NEAR(adapter->state().right_stick.x, -1.0F, 0.001F);
++  EXPECT_NEAR(adapter->state().right_stick.y, 0.0F, 0.001F);
++  EXPECT_NEAR(adapter->state().left_trigger, 1.0F, 0.001F);
++  EXPECT_NEAR(adapter->state().right_trigger, 1.0F, 0.01F);
++
++  send_state(0, 0, 0, 0, 0, 0, platf::A | platf::DPAD_UP | platf::LEFT_BUTTON | platf::MISC_BUTTON);
++  EXPECT_TRUE(adapter->state().buttons.test(lvh::GamepadButton::a));
++  EXPECT_TRUE(adapter->state().buttons.test(lvh::GamepadButton::dpad_up));
++  EXPECT_TRUE(adapter->state().buttons.test(lvh::GamepadButton::left_shoulder));
++  EXPECT_TRUE(adapter->state().buttons.test(lvh::GamepadButton::misc1));
++}
++
+ TEST_F(InputGamepadSessionTest, YieldsAfterBoundedPacketBatch) {
+   ASSERT_FALSE(task_pool.running());
+   auto stream_input = input::alloc(std::make_shared<safe::mail_raw_t>(), "bounded-input-batch");
