@@ -159,8 +159,8 @@ See [visual-tester/README.md](visual-tester/README.md) and
 
 ## Apollo integration
 
-The `integration/` folder contains the host-side precision patch for Apollo
-2026. It adds configurable deadzones, stick/trigger filtering, resume
+The `integration/` folder contains the host-side precision patch for
+**Apollo 2026**. It adds configurable deadzones, stick/trigger filtering, resume
 neutralization and Steam Controller auto-selection.
 
 ```powershell
@@ -185,7 +185,7 @@ See [integration/README.md](integration/README.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/leonidas10009/apollo_input/blob/main/LICENSE).
 
 ViGEmClient is MIT and ViGEmBus is BSD-3-Clause; both retain their own notices.
 No code from LizardByte's Source-Available License 1.0 components is used.
